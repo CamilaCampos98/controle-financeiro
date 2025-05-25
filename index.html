@@ -407,32 +407,21 @@
         modal.hide();
 
         const totalComExtras = resultado.salario + (resultado.extras || 0);
+        const saldo = resultado.saldoRestante;
 
         // Verifica se saldo está abaixo de 20%
         const saldoEstilo = saldo < 0.2 * totalComExtras ? "color: red; font-weight: bold;" : "";
-
-        // Função utilitária para tratar valores no formato brasileiro
-        function parseValor(valor) {
-            if (valor == null) return 0;
-            return parseFloat(valor.toString().replace(/\./g, '').replace(',', '.')) || 0;
-        }
-
-        const salario = parseValor(resultado.salario);
-        const extras = parseValor(resultado.extras);
-        const totalGasto = parseValor(resultado.totalGasto);
-        const saldo = parseValor(resultado.saldoRestante);
 
         let html = `
             <h4 class="mb-3">Resumo de <strong>${resultado.pessoa}</strong></h4>
             <div class="row mb-3">
                 <div class="col"><strong>Período:</strong> ${resultado.periodo}</div>
-                <div class="col"><strong>Salário:</strong> R$ ${salario.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                <div class="col"><strong>Extras:</strong> R$ ${extras.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                <div class="col"><strong>Total Gasto:</strong> R$ ${totalGasto.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</div>
-                <div class="col"><strong>Saldo:</strong> <span style="${saldoEstilo}">R$ ${saldo.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}</span></div>
+                <div class="col"><strong>Salário:</strong> R$ ${resultado.salario.toLocaleString('pt-BR')}</div>
+                <div class="col"><strong>Extras:</strong> R$ ${(resultado.extras || 0).toLocaleString('pt-BR')}</div>
+                <div class="col"><strong>Total Gasto:</strong> R$ ${resultado.totalGasto.toLocaleString('pt-BR')}</div>
+                <div class="col"><strong>Saldo:</strong> <span style="${saldoEstilo}">R$ ${saldo.toLocaleString('pt-BR')}</span></div>
             </div>
         `;
-
 
         if (resultado.compras.length > 0) {
             html += `
