@@ -72,7 +72,7 @@
         .nav {
             border-bottom: 2px solid #e0e0e0;
         }
-        #gridFixos table {
+        /* #gridFixos table {
         border-radius: 10px;
         overflow: hidden;
     }
@@ -83,7 +83,7 @@
     #gridFixos td {
         text-align: center;
         vertical-align: middle;
-    }
+    } */
     </style>
 </head>
 <body>
@@ -239,6 +239,10 @@
         <!-- Botão -->
         <button class="btn btn-warning mt-3" onclick="gerarFixos()">
             <i class="bi bi-gear"></i> Gerar Gastos Fixos do Mês
+        </button>
+
+        <button class="btn btn-success mt-3" onclick="listarFixos()">
+            <i class="bi bi-gear"></i> Listar Gastos Fixos
         </button>
     
         <!-- Mensagem de aviso -->
@@ -734,45 +738,45 @@ async function listarFixos() {
         }
 
         let html = `
-            <div class="table-responsive">
-                <table class="table table-bordered table-hover align-middle shadow">
-                    <thead class="table-dark">
-                        <tr>
-                            <th>Id</th>
-                            <th>Tipo</th>
-                            <th>Mês/Ano</th>
-                            <th>Vencimento</th>
-                            <th>Valor</th>
-                            <th>Pago</th>
-                            <th>Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-        `;
-
-        dados.forEach(fixo => {
-            html += `
+    <div class="table-responsive">
+        <table class="table table-striped table-bordered table-hover align-middle">
+            <thead class="table-dark text-center">
                 <tr>
-                    <td>${fixo.id}</td>
-                    <td>${fixo.tipo}</td>
-                    <td>${fixo.mesAno}</td>
-                    <td>${new Date(fixo.vencimento).toLocaleDateString('pt-BR')}</td>
-                    <td>R$ ${(fixo.valor ? fixo.valor.toFixed(2).replace('.', ',') : '')}</td>
-                    <td>${fixo.pago || ''}</td>
-                    <td>
-                        <button class="btn btn-sm btn-primary" onclick="editarFixo(${fixo.id})">
-                            <i class="bi bi-pencil"></i> Editar
-                        </button>
-                    </td>
+                    <th style="width: 5%;">Id</th>
+                    <th style="width: 20%;">Tipo</th>
+                    <th style="width: 15%;">Mês/Ano</th>
+                    <th style="width: 15%;">Vencimento</th>
+                    <th style="width: 15%;">Valor</th>
+                    <th style="width: 10%;">Pago</th>
+                    <th style="width: 20%;">Ações</th>
                 </tr>
-            `;
-        });
+            </thead>
+            <tbody>
+`;
 
-        html += `
-                    </tbody>
-                </table>
-            </div>
-        `;
+dados.forEach(fixo => {
+    html += `
+        <tr>
+            <td class="text-center">${fixo.id}</td>
+            <td>${fixo.tipo}</td>
+            <td class="text-center">${fixo.mesAno}</td>
+            <td class="text-center">${new Date(fixo.vencimento).toLocaleDateString('pt-BR')}</td>
+            <td class="text-end">R$ ${(fixo.valor ? fixo.valor.toFixed(2).replace('.', ',') : '')}</td>
+            <td class="text-center">${fixo.pago || ''}</td>
+            <td class="text-center">
+                <button class="btn btn-sm btn-primary" onclick="editarFixo(${fixo.id})">
+                    <i class="bi bi-pencil"></i> Editar
+                </button>
+            </td>
+        </tr>
+    `;
+});
+
+html += `
+            </tbody>
+        </table>
+    </div>
+`;
 
         document.getElementById('gridFixos').innerHTML = html;
 
