@@ -72,6 +72,18 @@
         .nav {
             border-bottom: 2px solid #e0e0e0;
         }
+        #gridFixos table {
+        border-radius: 10px;
+        overflow: hidden;
+    }
+    #gridFixos th {
+        background-color: #f8f9fa;
+        text-align: center;
+    }
+    #gridFixos td {
+        text-align: center;
+        vertical-align: middle;
+    }
     </style>
 </head>
 <body>
@@ -90,6 +102,9 @@
     </button>
     <button class="btn btn-outline-success" onclick="showTab('resumo')">
         <i class="bi bi-bar-chart-line"></i> Resumo
+    </button>
+	 <button class="btn btn-outline-success" onclick="showTab('fixos')">
+        <i class="bi bi-bar-chart-line"></i> Fixos
     </button>
 </nav>
 
@@ -198,7 +213,41 @@
         </button>
         <div class="resultado" id="resumoResultado"></div>
     </section>
-
+	
+	<!-- Fixos -->
+	<section id="fixos">
+        <h2><i class="bi bi-calendar-check"></i> Gastos Fixos</h2>
+    
+        <!-- Seletor de Tipos -->
+        <div class="row g-3">
+            <div class="col-md-4">
+                <label class="form-label">Pessoa</label>
+                <input id="fixoPessoa" class="form-control">
+            </div>
+            <div class="col-md-6">
+                <label class="form-label">Tipos de Gastos Fixos</label>
+                <select id="tiposFixos" class="form-select" multiple>
+                    <option value="Condomínio">Condomínio</option>
+                    <option value="Conta de Luz">Conta de Luz</option>
+                    <option value="Financiamento Veículo">Financiamento Veículo</option>
+                    <option value="Financiamento Imóvel">Financiamento Imóvel</option>
+                    <option value="Empréstimo">Empréstimo</option>
+                </select>
+            </div>
+        </div>
+    
+        <!-- Botão -->
+        <button class="btn btn-warning mt-3" onclick="gerarFixos()">
+            <i class="bi bi-gear"></i> Gerar Gastos Fixos do Mês
+        </button>
+    
+        <!-- Mensagem de aviso -->
+        <div id="mensagemFixos" class="mt-3 text-danger fw-bold"></div>
+    
+        <!-- Grid de lançamentos fixos -->
+        <div class="table-responsive mt-4" id="gridFixos"></div>
+    </section>
+    
 </div>
 
 <!-- Toast de Notificação -->
@@ -220,9 +269,27 @@
 
 <!-- Bootstrap JS -->
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/choices.js/public/assets/styles/choices.min.css" />
+<script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
 <script>
-    const apiBase = 'https://controlefinanceiroapi-wqu8.onrender.com/api/Compra';
+    // Inicializa o Choices no seletor
+    const tiposFixos = new Choices('#tiposFixos', {
+        removeItemButton: true,
+        shouldSort: false,
+    });
+
+    // Adiciona as opções
+    tiposFixos.setChoices([
+        { value: 'Condomínio', label: 'Condomínio' },
+        { value: 'Conta de Luz', label: 'Conta de Luz' },
+        { value: 'Financiamento Veículo', label: 'Financiamento Veículo' },
+        { value: 'Financiamento Imóvel', label: 'Financiamento Imóvel' },
+        { value: 'Empréstimo', label: 'Empréstimo' }
+    ], 'value', 'label', false);
+
+    //const apiBase = 'https://controlefinanceiroapi-wqu8.onrender.com/api/Compra';
+    const apiBase = 'https://localhost:44301/api/Compra';
 
     function showTab(tab) {
         document.querySelectorAll('nav button').forEach(btn => btn.classList.remove('active'));
@@ -230,6 +297,13 @@
 
         document.querySelector(`nav button[onclick="showTab('${tab}')"]`).classList.add('active');
         document.getElementById(tab).style.display = 'block';
+
+        if (tab === 'entrada') {
+            atualizarCamposEntrada(); // Atualiza campos ao abrir a aba de entrada
+        } else if (tab === 'fixos') {
+            listarFixos(); // Lista os fixos ao abrir a aba
+            verificarPendenciasFixos(); // Verifica pendências
+        }
     }
 
     function showLoading() {
@@ -492,6 +566,222 @@
         horasExtras.value = '';
     }
 }
+
+const gastosFixos = []; // Array local simulando os lançamentos fixos
+
+function obterTiposSelecionados() {
+    const select = document.getElementById('tiposFixos');
+    return Array.from(select.selectedOptions).map(opt => opt.value);
+}
+
+function gerarFixos() {
+    const selecionados = obterTiposSelecionados();
+    const mensagem = document.getElementById('mensagemFixos');
+
+    if (selecionados.length === 0) {
+        mensagem.innerText = "Selecione pelo menos um tipo de gasto fixo.";
+        return;
+    }
+
+    const hoje = new Date();
+    const mesAno = `${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`;
+    const vencimento = new Date(hoje.getFullYear(), hoje.getMonth(), 15);
+
+    selecionados.forEach(tipo => {
+        gastosFixos.push({
+            id: Date.now() + Math.random(), // ID único simples
+            tipo,
+            mesAno,
+            vencimento: vencimento.toISOString().split('T')[0],
+            valor: '',
+            pago: false
+        });
+    });
+
+    mensagem.innerText = "⚠️ Gastos fixos inseridos, mas com dados a preencher.";
+    renderizarGridFixos();
+
+    gerarFixosNaPlanilha(selecionados);
+}
+
+function renderizarGridFixos() {
+    const grid = document.getElementById('gridFixos');
+
+    if (gastosFixos.length === 0) {
+        grid.innerHTML = '<p>Sem lançamentos fixos cadastrados para o mês.</p>';
+        return;
+    }
+
+    let html = `
+        <table class="table table-hover table-bordered shadow-sm align-middle">
+            <thead class="table-light">
+                <tr>
+                    <th>Tipo</th>
+                    <th>Mês/Ano</th>
+                    <th>Vencimento</th>
+                    <th>Valor</th>
+                    <th>Pago</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+
+    gastosFixos.forEach(g => {
+        html += `
+            <tr>
+                <td>${g.tipo}</td>
+                <td>${g.mesAno}</td>
+                <td>${new Date(g.vencimento).toLocaleDateString('pt-BR')}</td>
+                <td>R$ ${g.valor ? parseFloat(g.valor).toFixed(2).replace('.', ',') : '0,00'}</td>
+                <td>${g.pago ? '✅' : '❌'}</td>
+                <td>
+                    <button class="btn btn-sm btn-primary" onclick="editarFixo(${g.id})">
+                        <i class="bi bi-pencil"></i> Editar
+                    </button>
+                </td>
+            </tr>
+        `;
+    });
+
+    html += '</tbody></table>';
+
+    grid.innerHTML = html;
+}
+
+function editarFixo(id) {
+    const fixo = gastosFixos.find(g => g.id === id);
+
+    const valor = prompt(`Informe o valor para "${fixo.tipo}" (use ponto para decimal):`, fixo.valor || '');
+    if (valor === null) return;
+
+    const pago = confirm('Marcar como PAGO?');
+
+    fixo.valor = parseFloat(valor) || 0;
+    fixo.pago = pago;
+
+    renderizarGridFixos();
+}
+
+async function gerarFixosNaPlanilha(tiposSelecionados) {
+    const hoje = new Date();
+    const mesAno = `${String(hoje.getMonth() + 1).padStart(2, '0')}/${hoje.getFullYear()}`;
+    const vencimento = `${hoje.getFullYear()}-${String(hoje.getMonth() + 1).padStart(2, '0')}-15`;
+    const pessoa = document.getElementById('fixoPessoa').value;
+
+    const fixos = tiposSelecionados.map(tipo => ({
+        id: Date.now() + Math.floor(Math.random() * 1000),
+        tipo,
+        mesAno,
+        vencimento,
+        pessoa,
+        valor: '',
+        pago: ''
+    }));
+
+
+    const payload = {
+        action: 'salvarFixos',
+        pessoa: pessoa,
+        data: fixos
+    };
+
+     try {
+        const res = await fetch(`${apiBase}/GeraFixos`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+        });
+
+        const resultado = await res.json();
+
+        if (resultado.status === 'sucesso') {
+            document.getElementById('mensagemFixos').innerText = '🔴 Gastos fixos inseridos, mas com dados a preencher.';
+            listarFixos();
+        } else {
+            alert('Erro: ' + resultado.message);
+        }
+    } catch (erro) {
+        console.error(erro);
+        alert('Erro ao salvar: ' + erro.message);
+    }
+}
+function verificarPendenciasFixos() {
+    const hoje = new Date();
+    const dia = hoje.getDate();
+
+    if (dia === 15) {
+        const pendentes = gastosFixos.filter(f => !f.valor || f.valor == 0 || !f.pago || f.pago === false);
+        if (pendentes.length > 0) {
+            alert('🔔 Atenção! Existem gastos fixos pendentes de preenchimento!');
+        }
+    }
+}
+
+async function listarFixos() {
+    try {
+        const pessoa = document.getElementById('fixoPessoa').value;
+        if (!pessoa) {
+            document.getElementById('gridFixos').innerHTML = '<div class="alert alert-warning">Informe uma pessoa para listar os gastos fixos.</div>';
+            return;
+        }
+        const res = await fetch(`${apiBase}/ListarFixos?pessoa=${pessoa}`);
+        const dados = await res.json();
+
+        if (!dados.length) {
+            document.getElementById('gridFixos').innerHTML = '<div class="alert alert-info">Nenhum gasto fixo encontrado.</div>';
+            return;
+        }
+
+        let html = `
+            <div class="table-responsive">
+                <table class="table table-bordered table-hover align-middle shadow">
+                    <thead class="table-dark">
+                        <tr>
+                            <th>Id</th>
+                            <th>Tipo</th>
+                            <th>Mês/Ano</th>
+                            <th>Vencimento</th>
+                            <th>Valor</th>
+                            <th>Pago</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        dados.forEach(fixo => {
+            html += `
+                <tr>
+                    <td>${fixo.id}</td>
+                    <td>${fixo.tipo}</td>
+                    <td>${fixo.mesAno}</td>
+                    <td>${new Date(fixo.vencimento).toLocaleDateString('pt-BR')}</td>
+                    <td>R$ ${(fixo.valor ? fixo.valor.toFixed(2).replace('.', ',') : '')}</td>
+                    <td>${fixo.pago || ''}</td>
+                    <td>
+                        <button class="btn btn-sm btn-primary" onclick="editarFixo(${fixo.id})">
+                            <i class="bi bi-pencil"></i> Editar
+                        </button>
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+        `;
+
+        document.getElementById('gridFixos').innerHTML = html;
+
+    } catch (error) {
+        console.error(error);
+        alert('Erro ao buscar gastos fixos');
+    }
+}
+
 </script>
 
 </body>
