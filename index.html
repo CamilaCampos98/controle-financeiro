@@ -277,6 +277,9 @@
 <script src="https://cdn.jsdelivr.net/npm/choices.js/public/assets/scripts/choices.min.js"></script>
 
 <script>
+    window.addEventListener('load', () => {
+    verificarPendenciasFixos();
+});
     // Inicializa o Choices no seletor
     const tiposFixos = new Choices('#tiposFixos', {
         removeItemButton: true,
@@ -571,7 +574,7 @@
     }
 }
 
-const gastosFixos = []; // Array local simulando os lançamentos fixos
+let gastosFixos = []; // Array local simulando os lançamentos fixos
 
 function obterTiposSelecionados() {
     const select = document.getElementById('tiposFixos');
@@ -633,21 +636,32 @@ function renderizarGridFixos() {
 
     gastosFixos.forEach(g => {
         html += `
-            <tr>
+            <tr data-id="${g.id}">
                 <td>${g.tipo}</td>
                 <td>${g.mesAno}</td>
                 <td>${new Date(g.vencimento).toLocaleDateString('pt-BR')}</td>
-                <td>R$ ${g.valor ? parseFloat(g.valor).toFixed(2).replace('.', ',') : '0,00'}</td>
-                <td>${g.pago ? '✅' : '❌'}</td>
                 <td>
-                    <button class="btn btn-sm btn-primary" onclick="editarFixo(${g.id})">
-                        <i class="bi bi-pencil"></i> Editar
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        class="form-control valor-input" 
+                        value="${g.valor ? parseFloat(g.valor).toFixed(2) : ''}" />
+                </td>
+                <td>
+                    <input 
+                        type="checkbox" 
+                        class="pago-checkbox" 
+                        ${g.pago ? 'checked' : ''} />
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-success" onclick="salvarFixo('${g.id}')">
+                        <i class="bi bi-save"></i> Salvar
                     </button>
                 </td>
             </tr>
         `;
     });
-
     html += '</tbody></table>';
 
     grid.innerHTML = html;
@@ -665,6 +679,48 @@ function editarFixo(id) {
     fixo.pago = pago;
 
     renderizarGridFixos();
+}
+
+async function salvarFixo(id) {
+    const linha = document.querySelector(`tr[data-id="${id}"]`);
+    if (!linha) return alert('Linha não encontrada.');
+
+    const idNum = Number(id);
+    const valorInput = linha.querySelector('.valor-input');
+    const pagoCheckbox = linha.querySelector('.pago-checkbox');
+
+    const novoValor = parseFloat(valorInput.value) || 0;
+    const novoPago = pagoCheckbox.checked;
+
+    // Atualiza o objeto local (opcional)
+    const fixo = gastosFixos.find(f => f.id === idNum);
+    if (!fixo) return alert('Gasto fixo não encontrado.');
+
+    fixo.valor = novoValor;
+    fixo.pago = novoPago;
+
+    try {
+        const res = await fetch(`${apiBase}/AtualizarFixo`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                id: id,
+                valor: novoValor,
+                pago: novoPago
+            })
+        });
+
+        const data = await res.json();
+
+        if (data.status === 'sucesso') {
+            alert('Fixo atualizado com sucesso!');
+            renderizarGridFixos();  // Atualiza a grid para refletir mudanças
+        } else {
+            alert('Erro ao atualizar: ' + data.message);
+        }
+    } catch (err) {
+        alert('Erro na requisição: ' + err.message);
+    }
 }
 
 async function gerarFixosNaPlanilha(tiposSelecionados) {
@@ -714,7 +770,7 @@ function verificarPendenciasFixos() {
     const hoje = new Date();
     const dia = hoje.getDate();
 
-    if (dia === 15) {
+    if (dia === 10) {
         const pendentes = gastosFixos.filter(f => !f.valor || f.valor == 0 || !f.pago || f.pago === false);
         if (pendentes.length > 0) {
             alert('🔔 Atenção! Existem gastos fixos pendentes de preenchimento!');
@@ -737,6 +793,8 @@ async function listarFixos() {
             return;
         }
 
+        gastosFixos = dados;
+
         let html = `
     <div class="table-responsive">
         <table class="table table-striped table-bordered table-hover align-middle">
@@ -756,18 +814,31 @@ async function listarFixos() {
 
 dados.forEach(fixo => {
     html += `
-        <tr>
+        <tr data-id="${fixo.id}">
             <td class="text-center">${fixo.id}</td>
             <td>${fixo.tipo}</td>
             <td class="text-center">${fixo.mesAno}</td>
             <td class="text-center">${new Date(fixo.vencimento).toLocaleDateString('pt-BR')}</td>
-            <td class="text-end">R$ ${(fixo.valor ? fixo.valor.toFixed(2).replace('.', ',') : '')}</td>
-            <td class="text-center">${fixo.pago || ''}</td>
-            <td class="text-center">
-                <button class="btn btn-sm btn-primary" onclick="editarFixo(${fixo.id})">
-                    <i class="bi bi-pencil"></i> Editar
-                </button>
-            </td>
+
+                <td>
+                    <input 
+                        type="number" 
+                        step="0.01" 
+                        min="0" 
+                        class="form-control valor-input" 
+                        value="${fixo.valor ? parseFloat(fixo.valor).toFixed(2) : ''}" />
+                </td>
+                <td>
+                    <input 
+                        type="checkbox" 
+                        class="pago-checkbox" 
+                        ${fixo.pago ? 'checked' : ''} />
+                </td>
+                <td class="text-center">
+                    <button class="btn btn-sm btn-success" onclick="salvarFixo('${fixo.id}')">
+                        <i class="bi bi-save"></i> Salvar
+                    </button>
+                </td>
         </tr>
     `;
 });
